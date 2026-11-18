@@ -75,7 +75,7 @@ export function syntheticResource(o) {
     tilt: o.tilt,
     azimuth: o.azimuth,
     notes: [
-      `Cloudiness is a seeded random process (${climate.source}); it is illustrative, not a forecast or a climatology.`,
+      `Synthetic weather: seeded random cloudiness around monthly statistics ${climate.source}; not a forecast or a climatology.`,
     ],
   };
 }
