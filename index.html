@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Solar Node Sizer</title>
+    <meta
+      name="description"
+      content="Size the solar panel and battery for a battery-powered sensor node and simulate a year hour by hour: load profile, regulator, charger, battery and synthetic or PVGIS weather."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='5' cy='5' r='3' fill='%23eda100'/%3E%3Crect x='6' y='8' width='9' height='6' rx='1' fill='%232a78d6'/%3E%3C/svg%3E"
+    />
+    <script type="module" src="src/ui/app.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Solar Node Sizer</h1>
+        <p class="tagline">
+          Size the solar panel and battery for an embedded sensor node and simulate a year hour by
+          hour. Results are model estimates; the built-in weather is illustrative.
+        </p>
+      </div>
+      <nav>
+        <a href="https://github.com/projectbin07-stack/solar-node-sizer">Source and docs</a>
+        <button type="button" id="btn-link" title="Copy a link to this exact setup">
+          Copy link
+        </button>
+        <button type="button" id="btn-csv" title="Download the hourly results as CSV">
+          Export CSV
+        </button>
+        <button type="button" id="btn-theme" title="Switch between automatic, light and dark">
+          Theme: auto
+        </button>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <section class="panel controls" aria-label="Node, panel and battery settings">
+        <fieldset>
+          <legend>Start from</legend>
+          <label class="row"
+            ><span>Example</span>
+            <select id="example"></select>
+          </label>
+          <p class="note" id="config-note"></p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Load profile</legend>
+          <div class="table-wrap">
+            <table class="load-table" aria-label="Load states">
+              <thead>
+                <tr>
+                  <th scope="col">State</th>
+                  <th scope="col" title="Current at the regulated supply">mA</th>
+                  <th scope="col" title="Seconds between events">every s</th>
+                  <th scope="col" title="Seconds per event">for s</th>
+                  <th scope="col" title="Local hours the state is scheduled (from-to)">hours</th>
+                  <th scope="col" title="Fills the rest of the time">base</th>
+                  <th scope="col"><span class="sr-only">Remove</span></th>
+                </tr>
+              </thead>
+              <tbody id="load-rows"></tbody>
+            </table>
+          </div>
+          <button type="button" id="btn-add-state">Add state</button>
+          <label class="row"
+            ><span>Regulator</span>
+            <select id="regulator"></select>
+          </label>
+          <details>
+            <summary>Regulator parameters</summary>
+            <div class="grid2">
+              <label
+                ><span>Type</span>
+                <select id="r-type">
+                  <option value="none">none</option>
+                  <option value="ldo">LDO</option>
+                  <option value="switching">switching</option>
+                </select>
+              </label>
+              <label><span>Output V</span><input id="r-vout" type="number" step="0.1" /></label>
+              <label><span>Quiescent uA</span><input id="r-iq" type="number" step="any" /></label>
+              <label
+                ><span>LDO dropout V</span><input id="r-dropout" type="number" step="0.01"
+              /></label>
+              <label
+                ><span>Switcher min input V</span><input id="r-minvin" type="number" step="0.1"
+              /></label>
+              <label
+                ><span>Node min supply V</span><input id="r-nodemin" type="number" step="0.1"
+              /></label>
+            </div>
+            <p class="note" id="r-eff"></p>
+          </details>
+        </fieldset>
+
+        <fieldset>
+          <legend>Location and weather</legend>
+          <label class="row"
+            ><span>Place</span>
+            <select id="city"></select>
+          </label>
+          <div class="grid3">
+            <label><span>Latitude</span><input id="lat" type="number" step="0.01" /></label>
+            <label><span>Longitude</span><input id="lon" type="number" step="0.01" /></label>
+            <label><span>UTC offset h</span><input id="tz" type="number" step="0.5" /></label>
+          </div>
+          <label class="row"
+            ><span>Synthetic climate</span>
+            <select id="climate"></select>
+          </label>
+          <div class="grid2">
+            <label><span>Weather seed</span><input id="seed" type="number" step="1" /></label>
+            <label
+              ><span>Cloud scale</span
+              ><input id="cloudScale" type="number" step="0.05" min="0.05" max="2"
+            /></label>
+          </div>
+          <p class="note" id="climate-note"></p>
+          <label class="file"
+            ><span>Or use a PVGIS hourly CSV you downloaded</span>
+            <input id="pvgis-file" type="file" accept=".csv,text/csv"
+          /></label>
+          <p class="note" id="pvgis-status"></p>
+          <button type="button" id="btn-synthetic" hidden>Back to synthetic weather</button>
+        </fieldset>
+
+        <fieldset>
+          <legend>Panel and charger</legend>
+          <div class="grid2">
+            <label><span>Panel Wp</span><input id="wp" type="number" step="any" min="0" /></label>
+            <label><span>Vmp V</span><input id="vmp" type="number" step="0.1" /></label>
+            <label><span>Tilt deg</span><input id="tilt" type="number" step="1" /></label>
+            <label
+              ><span>Azimuth deg (180 = S)</span><input id="azimuth" type="number" step="1"
+            /></label>
+            <label
+              ><span>Temp. coeff. /K</span><input id="tempCoeff" type="number" step="0.0005"
+            /></label>
+            <label><span>NOCT degC</span><input id="noct" type="number" step="1" /></label>
+            <label><span>Soiling</span><input id="soiling" type="number" step="0.01" /></label>
+            <label
+              ><span>Other losses</span><input id="otherLosses" type="number" step="0.01"
+            /></label>
+            <label
+              ><span>Charger</span>
+              <select id="chargerType">
+                <option value="linear">linear / PWM</option>
+                <option value="mppt">MPPT</option>
+              </select>
+            </label>
+            <label
+              ><span>Charger efficiency</span><input id="chargerEff" type="number" step="0.01"
+            /></label>
+            <label
+              ><span>Charge limit mA</span><input id="chargerMa" type="number" step="10"
+            /></label>
+            <label><span>Ground albedo</span><input id="albedo" type="number" step="0.05" /></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Battery</legend>
+          <label class="row"
+            ><span>Chemistry</span>
+            <select id="chemistry"></select>
+          </label>
+          <div class="grid2">
+            <label
+              ><span>Cells in series</span><input id="cells" type="number" step="1" min="1"
+            /></label>
+            <label><span>Capacity mAh</span><input id="capacity" type="number" step="any" /></label>
+            <label><span>Usable depth</span><input id="dod" type="number" step="0.05" /></label>
+            <label><span>Cut-off V</span><input id="cutoff" type="number" step="0.05" /></label>
+            <label
+              ><span>Self-discharge /month</span
+              ><input id="selfDischarge" type="number" step="0.005"
+            /></label>
+            <label
+              ><span>Initial charge</span><input id="initialSoc" type="number" step="0.05"
+            /></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Simulation and sizing</legend>
+          <div class="grid2">
+            <label><span>Warm-up years</span><input id="warmup" type="number" step="1" /></label>
+            <label
+              ><span>Restart margin</span><input id="restart" type="number" step="0.01"
+            /></label>
+            <label
+              ><span>Allowed downtime h/yr</span><input id="target" type="number" step="1" min="0"
+            /></label>
+            <label><span>Cost per Wp</span><input id="costWp" type="number" step="0.1" /></label>
+            <label><span>Cost per Ah</span><input id="costAh" type="number" step="0.1" /></label>
+          </div>
+          <p class="note">
+            Costs are relative weights for choosing between panel and battery; set your own prices.
+          </p>
+        </fieldset>
+      </section>
+
+      <section class="results" aria-label="Results">
+        <div class="panel verdict">
+          <p id="status" class="status">loading</p>
+          <p id="summary" class="summary" aria-live="polite"></p>
+          <dl class="tiles" id="tiles"></dl>
+          <ul id="warnings" class="warnings"></ul>
+          <p id="error" class="error" hidden></p>
+        </div>
+
+        <div class="panel">
+          <h2>Daily energy by state</h2>
+          <canvas
+            id="c-budget"
+            class="chart short"
+            role="img"
+            aria-label="Daily energy by load state"
+          ></canvas>
+          <ul class="legend" id="budget-legend"></ul>
+        </div>
+
+        <div class="panel">
+          <h2>State of charge over the year</h2>
+          <canvas
+            id="c-heat"
+            class="chart"
+            role="img"
+            aria-label="Heatmap of battery state of charge by day and hour"
+          ></canvas>
+          <div class="ramp-legend">
+            <span>at the usable floor</span><span class="ramp" aria-hidden="true"></span
+            ><span>full</span> <span class="swatch crit" aria-hidden="true"></span
+            ><span>node down</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Monthly energy: stored harvest and load</h2>
+          <canvas
+            id="c-month"
+            class="chart"
+            role="img"
+            aria-label="Monthly stored harvest and load"
+          ></canvas>
+          <ul class="legend">
+            <li><span class="swatch s1"></span>stored from the panel</li>
+            <li><span class="swatch s2"></span>delivered to the node</li>
+            <li><span class="tri"></span>month with downtime</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h2>Worst week <span id="week-label" class="muted"></span></h2>
+          <canvas
+            id="c-week-soc"
+            class="chart short2"
+            role="img"
+            aria-label="State of charge during the worst week"
+          ></canvas>
+          <canvas
+            id="c-week-flow"
+            class="chart short2"
+            role="img"
+            aria-label="Stored and load power during the worst week"
+          ></canvas>
+          <ul class="legend">
+            <li><span class="swatch s1"></span>charge / stored power</li>
+            <li><span class="swatch s2"></span>load power</li>
+            <li><span class="dash"></span>usable floor</li>
+            <li><span class="swatch critlight"></span>node down</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h2>Sizing: panel against battery</h2>
+          <p id="sizer-status" class="note">Waiting for the simulation.</p>
+          <canvas
+            id="c-pareto"
+            class="chart tall"
+            role="img"
+            aria-label="Panel and battery combinations that keep the node up"
+          ></canvas>
+          <ul class="legend">
+            <li><span class="dot s1"></span>meets the downtime target</li>
+            <li><span class="ring"></span>does not</li>
+            <li><span class="swatch s2"></span>Pareto frontier</li>
+            <li><span class="box"></span>current design</li>
+          </ul>
+          <p id="best" class="best"></p>
+          <button type="button" id="btn-apply-best" hidden>Use the lowest-cost combination</button>
+        </div>
+
+        <p class="footnote">
+          Everything runs in your browser; nothing is uploaded. Model equations, sources and limits
+          are in
+          <a href="https://github.com/projectbin07-stack/solar-node-sizer/blob/main/docs/models.md"
+            >docs/models.md</a
+          >. Nothing here has been validated against a physical node's measured battery data.
+        </p>
+      </section>
+    </main>
+    <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+  </body>
+</html>

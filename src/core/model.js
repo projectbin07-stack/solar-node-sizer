@@ -124,8 +124,8 @@ export function fmt(x) {
   if (!Number.isFinite(x)) return String(x);
   const a = Math.abs(x);
   if (a >= 100) return x.toFixed(0);
-  if (a >= 10) return x.toFixed(1);
-  return x.toFixed(2).replace(/\.?0+$/, "") || "0";
+  if (a >= 10) return String(Number(x.toFixed(1)));
+  return String(Number(x.toPrecision(3)));
 }
 
 /**

@@ -280,6 +280,8 @@ test("model run: summary sentences, JSON shape, CSV export", () => {
   assert.equal(fmt(1234.5), "1235");
   assert.equal(fmt(12.34), "12.3");
   assert.equal(fmt(0.5), "0.5");
+  assert.equal(fmt(0.0075), "0.0075");
+  assert.equal(fmt(75), "75");
   assert.equal(fmt(0), "0");
   assert.equal(fmt(Infinity), "Infinity");
   assert.equal(pct(0.257), "25.7 %");
