@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-11-19
+
+### Fixed
+
+- Days of autonomy left out self-discharge, so v0.1.0 overstated it. It was
+  `usable energy / daily load`; it is now the time a full battery keeps the
+  node up with no harvest at 20 degC, applying the simulation's hourly
+  self-discharge and load until the floor (closed form, documented in
+  `docs/models.md` section 11). With zero self-discharge the result is
+  unchanged. Bundled examples, before -> after: `esp32-wifi-10min` 130.92
+  -> 119.34 days, `atmega-nrf24` 290.01 -> 247.55 days,
+  `esp32-devboard-ams1117` 1.23 -> 1.21 days. Downtime, state of charge
+  and sizing results did not change: autonomy is a reported figure only.
+- The load-profile table no longer scrolls sideways on desktop: its columns
+  take fixed shares of the settings panel, and on phones each state is laid
+  out on two lines.
+
 ## [0.1.0] - 2026-11-19
 
 First release.
@@ -42,4 +59,5 @@ First release.
   Ubuntu and Windows with Node 22 and 24, a headless Chrome smoke test and
   GitHub Pages deployment.
 
+[0.1.1]: https://github.com/projectbin07-stack/solar-node-sizer/releases/tag/v0.1.1
 [0.1.0]: https://github.com/projectbin07-stack/solar-node-sizer/releases/tag/v0.1.0

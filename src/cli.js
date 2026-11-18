@@ -10,7 +10,7 @@ import { PvgisFormatError, parsePvgisCsv } from "./core/pvgis.js";
 import { size } from "./core/sizer.js";
 import { CITIES, CLIMATES } from "./core/weather.js";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
 
 /**
  * Everything the CLI touches outside itself, so tests can run it in memory.
