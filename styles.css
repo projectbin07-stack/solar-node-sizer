@@ -262,12 +262,35 @@ details summary {
   overflow-x: auto;
 }
 
+/* Fixed layout with percentage columns (see the colgroup in index.html):
+   the table is exactly as wide as its box at any width, and the inputs
+   shrink instead of pushing the remove column out of view. */
 .load-table {
   border-collapse: collapse;
+  table-layout: fixed;
   width: 100%;
-  min-width: 440px;
   font-size: 0.84rem;
   margin-bottom: 6px;
+}
+
+.load-table .c-name {
+  width: 26%;
+}
+
+.load-table .c-num {
+  width: 13%;
+}
+
+.load-table .c-hours {
+  width: 19%;
+}
+
+.load-table .c-base {
+  width: 8%;
+}
+
+.load-table .c-remove {
+  width: 8%;
 }
 
 .load-table th {
@@ -286,32 +309,39 @@ details summary {
   padding: 3px 4px;
 }
 
-.load-table td:nth-child(1) {
-  min-width: 7em;
+/* Spin buttons take a third of a narrow number field; arrow keys still work. */
+.load-table input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
 }
 
-.load-table td:nth-child(2),
-.load-table td:nth-child(3),
-.load-table td:nth-child(4) {
-  width: 4.4em;
-}
-
-.load-table td:nth-child(5) {
-  width: 6.6em;
+.load-table input[type="number"]::-webkit-inner-spin-button,
+.load-table input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .load-table .hours input[type="number"] {
   padding: 3px 2px;
-  min-width: 2.6em;
 }
 
 .load-table .hours {
   display: flex;
+  align-items: center;
   gap: 2px;
 }
 
+.load-table input[type="radio"] {
+  margin: 0;
+}
+
+.load-table button {
+  width: 100%;
+  padding: 3px 0;
+}
+
 .load-table .swatch {
-  margin-right: 4px;
+  margin-right: 2px;
 }
 
 .results {
@@ -558,6 +588,98 @@ details summary {
 
   .chart.tall {
     height: 280px;
+  }
+}
+
+/* Phones: each load state becomes two lines (name, base, remove; then the
+   numbers with their own labels), so nothing has to scroll sideways. */
+@media (max-width: 520px) {
+  .load-table,
+  .load-table tbody {
+    display: block;
+  }
+
+  .load-table colgroup,
+  .load-table thead {
+    display: none;
+  }
+
+  .load-table tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.5fr) auto auto;
+    gap: 2px 4px;
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .load-table td {
+    padding: 0;
+  }
+
+  .load-table td:nth-child(1) {
+    grid-area: 1 / 1 / 2 / 5;
+  }
+
+  .load-table td:nth-child(2) {
+    grid-area: 2 / 1;
+  }
+
+  .load-table td:nth-child(3) {
+    grid-area: 2 / 2;
+  }
+
+  .load-table td:nth-child(4) {
+    grid-area: 2 / 3;
+  }
+
+  .load-table td:nth-child(5) {
+    grid-area: 2 / 4 / 3 / 7;
+  }
+
+  .load-table td:nth-child(6) {
+    grid-area: 1 / 5;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .load-table td:nth-child(n + 2):not(:last-child)::before {
+    display: block;
+    color: var(--muted);
+    font-size: 0.78rem;
+  }
+
+  .load-table td:nth-child(6)::before {
+    display: inline;
+  }
+
+  .load-table td:nth-child(2)::before {
+    content: "mA";
+  }
+
+  .load-table td:nth-child(3)::before {
+    content: "every s";
+  }
+
+  .load-table td:nth-child(4)::before {
+    content: "for s";
+  }
+
+  .load-table td:nth-child(5)::before {
+    content: "hours (from-to)";
+  }
+
+  .load-table td:nth-child(6)::before {
+    content: "base";
+  }
+
+  .load-table td:nth-child(7) {
+    grid-area: 1 / 6;
+  }
+
+  .load-table button {
+    width: auto;
+    padding: 3px 10px;
   }
 }
 
