@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ["22", "24"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dev tools
+        run: npm ci
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Type check (JSDoc, strict)
+        run: npm run typecheck
+
+      - name: Test with coverage thresholds
+        run: npm run coverage
+
+      - name: CLI smoke test
+        shell: bash
+        run: |
+          node bin/solar-node-sizer.js --version
+          node bin/solar-node-sizer.js presets
+          node bin/solar-node-sizer.js simulate examples/esp32-wifi-10min.json
+          node bin/solar-node-sizer.js simulate examples/esp32-devboard-ams1117.json --json > sim.json
+          node -e "const j = require('./sim.json'); if (!(j.downtimeHours > 0) || j.battery.limitedBy !== 'regulator') process.exit(1)"
+          node bin/solar-node-sizer.js size examples/atmega-nrf24.json
+          node bin/solar-node-sizer.js size examples/esp32-wifi-10min.json --json > size.json
+          node -e "const j = require('./size.json'); if (!j.best || j.frontier.length < 1) process.exit(1)"
+          node bin/solar-node-sizer.js simulate examples/esp32-wifi-10min.json --pvgis tests/fixtures/pvgis-series-sample.csv
+          node bin/solar-node-sizer.js simulate examples/atmega-nrf24.json --csv hourly.csv
+          test "$(wc -l < hourly.csv)" -eq 8761
+
+  browser:
+    name: Browser smoke test (headless Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Load the page and check the simulation and the sizer ran
+        run: |
+          node scripts/serve.js &
+          sleep 1
+          # The default page simulates the ESP32 example for a year and then
+          # runs the sizer; both results are written into the DOM.
+          google-chrome --headless=new --disable-gpu --no-sandbox \
+            --virtual-time-budget=10000 --dump-dom \
+            "http://127.0.0.1:8000/" > dom.html
+          grep -o 'id="status"[^<]*' dom.html
+          grep -o 'id="summary"[^<]*' dom.html
+          grep -o 'id="best"[^<]*' dom.html
+          grep -q 'id="status" class="status">ready' dom.html
+          grep -q 'Survives the year with 131 days of autonomy' dom.html
+          grep -q 'Lowest cost: 0.05 Wp + 75 mAh' dom.html
+          # A link with an undersized panel must report downtime.
+          google-chrome --headless=new --disable-gpu --no-sandbox \
+            --virtual-time-budget=10000 --dump-dom \
+            "http://127.0.0.1:8000/?wp=0.02" > dom2.html
+          grep -o 'id="summary"[^<]*' dom2.html
+          grep -q 'id="summary" class="summary bad"[^>]*>Down ' dom2.html

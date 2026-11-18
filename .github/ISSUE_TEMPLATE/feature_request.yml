@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest a model, a preset, a chart or a change
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What would you like to size or see that is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Reference to the model, paper, datasheet or data source if there is one.
+  - type: textarea
+    id: verification
+    attributes:
+      label: How could it be tested?
+      description: Everything here is a model, so a change should come with a test against a value that can be worked out independently (a published reference, a hand calculation, a datasheet figure). Measured data from a real node is very welcome.
