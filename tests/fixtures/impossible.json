@@ -1,0 +1,5 @@
+{
+  "name": "Impossible grid (test fixture)",
+  "panel": { "wp": 0.01 },
+  "sizer": { "panelWp": [0.001, 0.002], "batteryMah": [100, 200] }
+}
