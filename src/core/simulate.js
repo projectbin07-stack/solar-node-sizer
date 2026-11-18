@@ -59,7 +59,10 @@ import { chargerOutput, powerPerWp } from "./pv.js";
  * @property {MonthStats[]} months
  * @property {Deficit} deficit
  * @property {number} dailyLoadWh mean daily load at the nominal battery voltage
- * @property {number} autonomyDays usable energy / daily load, from full, at 20 degC or above
+ * @property {number} autonomyDays days a full battery keeps the node up with no
+ *   harvest, at 20 degC or above: the mean load at the nominal voltage plus
+ *   self-discharge, applied hour by hour as in the simulation, until the
+ *   stored energy reaches the floor (see autonomyHours). Infinity with no load.
  * @property {import("./config.js").BatteryLimits} limits
  * @property {number} worstWeekStartDay
  */
@@ -268,10 +271,46 @@ export function simulate(c, prep, opts = {}) {
     months,
     deficit,
     dailyLoadWh,
-    autonomyDays: dailyLoadWh > 0 ? limits.usableWh / dailyLoadWh : Infinity,
+    autonomyDays: autonomyHours(eCap, eCap * limits.socMin, dailyLoadWh / 24, sdh) / 24,
     limits,
     worstWeekStartDay: worstWeekStart(record ? down : null, minSocHour, days),
   };
+}
+
+/**
+ * How long a battery lasts with no harvest, stepping the simulation's
+ * order for each hour: self-discharge first (a fraction `sdh` of the stored
+ * energy), then the load. With a constant load `p` per hour the energy after
+ * k whole hours is, in closed form,
+ *   E_k = (E_0 + p/s) (1 - s)^k - p/s        (s = sdh > 0)
+ *   E_k = E_0 - k p                          (s = 0)
+ * The result is the last whole hour N that ends at or above the floor plus
+ * the fraction of the next hour the remaining energy covers after that
+ * hour's self-discharge, ((1 - s) E_N - floor) / p, which is how the
+ * simulation splits the hour in which the node browns out. With s = 0 this
+ * is exactly (E_0 - floor) / p.
+ * @param {number} e0 starting stored energy, Wh
+ * @param {number} floorWh energy at which the node stops, Wh
+ * @param {number} loadWh load per hour, Wh
+ * @param {number} sdh self-discharge per hour, fraction of the stored energy
+ * @returns {number} hours (Infinity with no load)
+ */
+export function autonomyHours(e0, floorWh, loadWh, sdh) {
+  if (!(loadWh > 0)) return Infinity;
+  if (e0 <= floorWh) return 0;
+  const s = Math.max(0, sdh);
+  const q = s > 0 ? loadWh / s : 0;
+  /** @param {number} k */
+  const after = (k) => (s > 0 ? (e0 + q) * Math.pow(1 - s, k) - q : e0 - k * loadWh);
+  // Real-valued k where E_k = floor; N is the whole hours before it.
+  const kReal =
+    s > 0 ? Math.log((floorWh + q) / (e0 + q)) / Math.log(1 - s) : (e0 - floorWh) / loadWh;
+  let n = Math.max(0, Math.floor(kReal));
+  // Guard against rounding in the logarithms.
+  while (n > 0 && after(n) < floorWh) n--;
+  while (after(n + 1) >= floorWh) n++;
+  const frac = ((1 - s) * after(n) - floorWh) / loadWh;
+  return n + Math.min(1, Math.max(0, frac));
 }
 
 /**

@@ -78,7 +78,7 @@ jobs:
           grep -o 'id="summary"[^<]*' dom.html
           grep -o 'id="best"[^<]*' dom.html
           grep -q 'id="status" class="status">ready' dom.html
-          grep -q 'Survives the year with 131 days of autonomy' dom.html
+          grep -q 'Survives the year with 119 days of autonomy' dom.html
           grep -q 'Lowest cost: 0.05 Wp + 75 mAh' dom.html
           # A link with an undersized panel must report downtime.
           google-chrome --headless=new --disable-gpu --no-sandbox \

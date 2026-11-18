@@ -303,11 +303,40 @@ Reported: panel energy, charger output, energy accepted and stored, charge
 loss, clipped energy (offered but not accepted because the battery was full
 or rate- or temperature-limited), energy delivered, unserved energy while
 down, self-discharge, downtime hours and outages, lowest charge,
-**days of autonomy** (usable energy at 20 degC divided by the daily load at
-the nominal voltage) and the **worst consecutive-days deficit**: the largest
+**days of autonomy** (defined below) and the **worst consecutive-days deficit**: the largest
 running total of `load - storable harvest` over consecutive days,
 `d = max(0, d + load_day - eta x charger output_day)`, which is the usable
 energy an ideal, never-full battery would have needed.
+
+**Days of autonomy** is how long a full battery keeps the node up with no
+harvest at all, at 20 degC or above (no cold derating, so the floor is
+`socMin x capacity`). It applies the same per-hour order as the
+simulation: self-discharge removes a fraction `s` of the stored energy,
+then the load takes `p`, the mean hourly load at the nominal voltage
+(regulator quiescent current and conversion loss included). After `k`
+whole hours from full energy `E0`
+
+    E_k = (E0 + p/s) (1 - s)^k - p/s        (s > 0)
+    E_k = E0 - k p                          (s = 0)
+
+The result is the last whole hour `N` with `E_N >= floor` plus the fraction
+`((1 - s) E_N - floor) / p` of the next hour, the same split the
+simulation uses for the hour in which the node browns out. With no
+self-discharge this reduces to `usable energy / daily load`. Because
+self-discharge is proportional to the stored energy, it costs most while
+the battery is full: for the bundled ESP32 example (9.25 Wh Li-ion, 3 %
+a month, 56.5 mWh a day, 7.4 Wh usable) the leak starts near 9 mWh a day
+and ends near 2 mWh a day, and autonomy is 119 days rather than the
+131 days of usable energy over load. With no load the node never runs out
+and autonomy is reported as infinite. Versions up to 0.1.0 reported
+`usable / daily load` and so overstated autonomy whenever self-discharge
+was non-zero.
+
+The figure ignores the open-circuit-voltage dependence of the load (an LDO
+or a direct supply draws `V x I`, which is above the nominal-voltage figure
+for most of a lithium discharge), so a no-sun run in the full simulation
+can end a few percent earlier; with a voltage-independent load the two
+agree exactly (tested).
 
 Energy balance holds to rounding: `stored - delivered - self-discharge =
 end energy - start energy` (tested). The hourly step cannot see events

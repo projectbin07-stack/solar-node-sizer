@@ -12,7 +12,13 @@ import {
 } from "../src/core/battery.js";
 import { cellTemperature, chargerOutput, powerPerWp } from "../src/core/pv.js";
 import { normalizeConfig } from "../src/core/config.js";
-import { prepare, simulate, chargeHour, worstDeficit } from "../src/core/simulate.js";
+import {
+  prepare,
+  simulate,
+  autonomyHours,
+  chargeHour,
+  worstDeficit,
+} from "../src/core/simulate.js";
 
 /** @typedef {import("../src/core/resource.js").Resource} Resource */
 
@@ -189,6 +195,95 @@ test("no panel: the node runs down the battery then stays down; autonomy matches
   );
   assert.equal(r.downtimeEvents, 1);
   near(r.minSoc, r.limits.socMin, 1e-6, "ends at the floor");
+});
+
+test("autonomyHours: hand-stepped values with and without self-discharge", () => {
+  // No self-discharge: (E0 - floor) / load, the v0.1.0 formula.
+  near(autonomyHours(10, 2, 1, 0), 8, 1e-12, "10 Wh to 2 Wh at 1 Wh/h");
+  near(autonomyHours(9.25, 1.85, 0.25, 0), 7.4 / 0.25, 1e-12, "fractional last hour");
+  // s = 10 %/h, 1 Wh/h, 10 Wh down to 5 Wh, stepped by hand:
+  //   h1: 10 x 0.9 - 1 = 8;  h2: 8 x 0.9 - 1 = 6.2;
+  //   h3: 6.2 x 0.9 = 5.58, 0.58 Wh above the floor covers 0.58 of the hour.
+  near(autonomyHours(10, 5, 1, 0.1), 2.58, 1e-12, "10 %/h");
+  // s = 50 %/h: h1: 10 x 0.5 - 1 = 4; h2: 4 x 0.5 = 2 = floor, nothing left.
+  near(autonomyHours(10, 2, 1, 0.5), 1, 1e-12, "50 %/h");
+  assert.equal(autonomyHours(1, 2, 1, 0.1), 0, "already below the floor");
+  assert.equal(autonomyHours(10, 2, 0, 0.1), Infinity, "no load");
+});
+
+test("autonomyHours agrees with a brute-force hourly loop and the continuous solution", () => {
+  // The bundled ESP32 example: 9.25 Wh Li-ion, floor 20 %, 3 %/month.
+  const s = selfDischargePerHour(0.03);
+  const p = 0.0565 / 24;
+  let e = 9.25;
+  let hours = 0;
+  for (;;) {
+    const afterLoss = e * (1 - s);
+    if (afterLoss - p < 1.85) {
+      hours += (afterLoss - 1.85) / p;
+      break;
+    }
+    e = afterLoss - p;
+    hours++;
+  }
+  near(autonomyHours(9.25, 1.85, p, s), hours, 1e-6, "brute force");
+  // dE/dt = -k E - P  =>  t = ln((floor + P/k) / (E0 + P/k)) / -k, with
+  // k = ln(1 / 0.97) per 730 h and P = 0.0565 Wh/day: 119.4 days (the
+  // v0.1.0 formula gave 7.4 / 0.0565 = 131 days).
+  const k = (Math.log(1 / 0.97) / 730) * 24;
+  const pd = 0.0565;
+  const days = Math.log((1.85 + pd / k) / (9.25 + pd / k)) / -k;
+  near(days, 119.4, 0.05, "continuous solution by hand");
+  near(autonomyHours(9.25, 1.85, p, s) / 24, days, 0.01, "discrete vs continuous");
+});
+
+test("simulate reports autonomy with self-discharge; zero self-discharge keeps usable / load", () => {
+  const base = {
+    panel: { wp: 0 },
+    battery: { chemistry: "liion", capacityMah: 2500, dod: 0.8, cutoffV: 3 },
+    regulatorPreset: "none",
+    load: [{ name: "sleep", mA: 0.5, base: true }],
+    simulation: { warmupYears: 0 },
+  };
+  const res = flatResource(2, () => 0);
+  const none = normalizeConfig({ ...base, battery: { ...base.battery, selfDischargePerMonth: 0 } });
+  const r0 = simulate(none, prepare(none, res));
+  // 0.5 mA at 3.7 V = 44.4 mWh/day; 7.4 Wh usable => 166.67 days.
+  near(r0.dailyLoadWh, 0.0444, 1e-12, "daily load");
+  near(r0.autonomyDays, 7.4 / 0.0444, 1e-9, "old formula");
+  const sd = normalizeConfig({
+    ...base,
+    battery: { ...base.battery, selfDischargePerMonth: 0.03 },
+  });
+  const r1 = simulate(sd, prepare(sd, res));
+  // Continuous: k = ln(1/0.97)/730 h = 1.0013e-3 /day, P/k = 44.34 Wh,
+  // ln((1.85 + 44.34) / (9.25 + 44.34)) = ln(0.8619) = -0.1486, / -k = 148.4 days.
+  near(r1.autonomyDays, 148.4, 0.05, "with 3 %/month");
+  assert.ok(r1.autonomyDays < r0.autonomyDays);
+});
+
+test("no panel, constant load, no voltage dependence: the simulated run equals autonomy", () => {
+  // A switching regulator with no quiescent current and a single load state
+  // draws the same power at any battery voltage, so the simulation's no-sun
+  // run must end exactly where the autonomy figure says.
+  const c = normalizeConfig({
+    panel: { wp: 0 },
+    battery: { chemistry: "liion", capacityMah: 50, selfDischargePerMonth: 0.2, initialSoc: 1 },
+    regulatorPreset: "buck",
+    regulator: { iqUa: 0, efficiency: [[1, 0.9]] },
+    load: [{ name: "on", mA: 1, base: true }],
+    simulation: { warmupYears: 0, restartFraction: 0.05 },
+  });
+  const r = simulate(
+    c,
+    prepare(
+      c,
+      flatResource(10, () => 0),
+    ),
+  );
+  const upHours = r.hours - r.downtimeHours;
+  near(upHours, r.autonomyDays * 24, 1e-6, "simulated hours up vs autonomy");
+  assert.equal(r.downtimeEvents, 1);
 });
 
 test("cold weather locks part of the battery and stops charging below 0 degC", () => {
