@@ -16,6 +16,16 @@ see whether it survives the worst weeks.
 > designs and find the order of magnitude, then measure your node and leave
 > margin.
 
+![ESP32 dev board with an AMS1117-class LDO in a Mumbai-like synthetic year: the regulator's ground current dominates the budget, only 7 % of the cell is usable, the node browns out in August, and the sizing chart shows the panel/battery frontier](docs/img/ams1117-mumbai-light.png)
+
+The same ESP32 node with a low-Iq LDO, 0.075 Wp and 500 mAh in a
+Berlin-like climate (dark theme,
+[link](https://projectbin07-stack.github.io/solar-node-sizer/?cl=berlin&lat=52.52&lon=13.41&tz=1&tilt=40&wp=0.075&mah=500&theme=dark)):
+the heatmap shows the battery draining from November to February, the
+outages in red, and the worst week in late December.
+
+![ESP32 node in a Berlin-like climate: winter outages in the state-of-charge heatmap, monthly harvest below the load in winter, the worst week in late December and the sizing frontier](docs/img/berlin-winter-dark.png)
+
 ## Why
 
 "Will a 1 W panel and an 18650 keep my ESP32 alive through the monsoon?"
