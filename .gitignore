@@ -1,0 +1,8 @@
+node_modules/
+coverage/
+*.log
+.DS_Store
+out/
+# Downloaded PVGIS series and exports stay local
+*.csv
+!tests/fixtures/*.csv
