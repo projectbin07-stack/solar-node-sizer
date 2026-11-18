@@ -1,0 +1,64 @@
+{
+  "name": "ATmega328P + nRF24L01+ + DS18B20, report every minute, Mumbai (illustrative)",
+  "note": "Illustrative example, not a measured node. LiFePO4 powers the node directly: a full LFP cell (about 3.45 V at rest, 3.6 V while charging) stays within the nRF24L01+ 3.6 V maximum. Currents are datasheet-order figures.",
+  "location": {
+    "lat": 19.08,
+    "lon": 72.88,
+    "tz": 5.5,
+    "climate": "mumbai",
+    "seed": 1,
+    "cloudScale": 1
+  },
+  "panel": {
+    "wp": 0.3,
+    "tilt": 20,
+    "azimuth": 180,
+    "tempCoeff": -0.004,
+    "noct": 48,
+    "soiling": 0.05,
+    "vmp": 5,
+    "otherLosses": 0.1
+  },
+  "charger": {
+    "type": "linear",
+    "efficiency": 0.97,
+    "maxCurrentMa": 200
+  },
+  "battery": {
+    "chemistry": "lifepo4",
+    "cells": 1,
+    "capacityMah": 600,
+    "dod": 0.9,
+    "cutoffV": 2.8
+  },
+  "regulatorPreset": "none",
+  "regulator": {
+    "nodeMinV": 2.7
+  },
+  "load": [
+    {
+      "name": "Power-down + WDT",
+      "mA": 0.006,
+      "base": true
+    },
+    {
+      "name": "Wake + DS18B20 conversion",
+      "mA": 5,
+      "every": 60,
+      "duration": 0.8
+    },
+    {
+      "name": "nRF24 TX + auto-ack",
+      "mA": 15,
+      "every": 60,
+      "duration": 0.02
+    }
+  ],
+  "sizer": {
+    "panelWp": [],
+    "batteryMah": [],
+    "maxDowntimeHours": 0,
+    "costPerWp": 1,
+    "costPerAh": 1
+  }
+}

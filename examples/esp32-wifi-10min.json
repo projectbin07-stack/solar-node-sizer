@@ -1,0 +1,61 @@
+{
+  "name": "ESP32 + BME280, Wi-Fi report every 10 min, Bengaluru (illustrative)",
+  "note": "Illustrative example, not a measured node. Currents are datasheet-order figures for an ESP32 module on a board with a low-Iq LDO; measure your own board.",
+  "location": {
+    "lat": 12.97,
+    "lon": 77.59,
+    "tz": 5.5,
+    "climate": "bengaluru",
+    "seed": 1,
+    "cloudScale": 1
+  },
+  "panel": {
+    "wp": 1,
+    "tilt": 15,
+    "azimuth": 180,
+    "tempCoeff": -0.004,
+    "noct": 48,
+    "soiling": 0.05,
+    "vmp": 6,
+    "otherLosses": 0.1
+  },
+  "charger": {
+    "type": "linear",
+    "efficiency": 0.97,
+    "maxCurrentMa": 500
+  },
+  "battery": {
+    "chemistry": "liion",
+    "cells": 1,
+    "capacityMah": 2500,
+    "dod": 0.8,
+    "cutoffV": 3
+  },
+  "regulatorPreset": "ldo-lowiq",
+  "load": [
+    {
+      "name": "Deep sleep (RTC timer)",
+      "mA": 0.015,
+      "base": true
+    },
+    {
+      "name": "Boot + BME280 read",
+      "mA": 40,
+      "every": 600,
+      "duration": 0.3
+    },
+    {
+      "name": "Wi-Fi connect + MQTT",
+      "mA": 120,
+      "every": 600,
+      "duration": 3
+    }
+  ],
+  "sizer": {
+    "panelWp": [],
+    "batteryMah": [],
+    "maxDowntimeHours": 0,
+    "costPerWp": 1,
+    "costPerAh": 1
+  }
+}
