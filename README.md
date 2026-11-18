@@ -232,7 +232,7 @@ best         0.05 Wp + 75 mAh (relative cost 0.125 with 1/Wp and 1/Ah)
 ```
 
 With a PVGIS file downloaded as described above (Bengaluru, PVGIS-ERA5,
-2020, slope 15 deg, azimuth 0) and the frontier's 0.05 Wp + 100 mAh:
+2020, slope 15 deg, azimuth 0) and a 0.05 Wp panel with a 100 mAh cell:
 
 ```
 $ node bin/solar-node-sizer.js simulate examples/esp32-wifi-10min.json --wp 0.05 --mah 100 --pvgis Timeseries_12.972_77.594_E5_15deg_0deg_2020_2020.csv
