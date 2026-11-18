@@ -121,7 +121,8 @@ function writeForm(c) {
   );
   select("city").value = match ? match.id : "";
   select("example").value = app.example ?? "";
-  el("config-note").textContent = app.example ? c.note : "";
+  const ex = EXAMPLES.find((e) => e.id === app.example);
+  el("config-note").textContent = ex ? String(ex.config.note ?? "") : "";
   writeLoad(c.load);
   updateClimateNote();
 }
