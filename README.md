@@ -61,7 +61,8 @@ battery sizes for the cheapest combination that never browns out.
   or above 45 degC, cold derating, peak-current check.
 - **Hourly year simulation** with warm-up, brown-out and restart: energy
   harvested, stored, clipped and delivered, hours of downtime, lowest
-  charge, days of autonomy and the worst consecutive-days deficit.
+  charge, days of autonomy (how long a full battery lasts with no sun, load
+  plus self-discharge) and the worst consecutive-days deficit.
 - **Sizer**: simulates a grid of panel and battery sizes (chosen from the
   load), plots the Pareto frontier and picks the lowest-cost combination
   that meets a downtime target.
@@ -130,7 +131,7 @@ set (rounded to the hour).
 
 ```
 $ node bin/solar-node-sizer.js --help
-solar-node-sizer 0.1.0: solar panel and battery sizing for embedded nodes
+solar-node-sizer 0.1.1: solar panel and battery sizing for embedded nodes
 
 Usage:
   solar-node-sizer simulate <config.json> [options]
@@ -184,7 +185,7 @@ year (365 days)
   downtime               16.3 h in 1 outage(s), longest 16.3 h
   lowest charge          93.3 % on 16 Aug
   worst deficit          0.465 Wh over 3 day(s) from 14 Aug
-  autonomy               1.23 days from full
+  autonomy               1.21 days from full
 month   stored Wh   load Wh   down h
   Jan        17.8      17.5        0
   Feb          16      15.8        0
@@ -201,7 +202,7 @@ month   stored Wh   load Wh   down h
 note: The regulator needs at least 4.10 V, so only 7 % of the battery is usable (below that the output sags).
 note: The regulator draws 5.0 mA all the time, which usually dominates a sleeping node's budget.
 note: Synthetic weather: seeded random cloudiness around monthly statistics PVGIS-ERA5 at 19.08 N 72.88 E, fitted to PVGIS 2020 hourly data (one year, horizontal plane); illustrative; not a forecast or a climatology.
-result: Down 16.3 hours over the year, all in Aug; 1 brown-out(s), longest 16.3 h. Battery gives 1.23 days of autonomy.
+result: Down 16.3 hours over the year, all in Aug; 1 brown-out(s), longest 16.3 h. Battery gives 1.21 days of autonomy.
 ```
 
 Sizing the ESP32 example (grid chosen from the load; `ok` = no downtime,
@@ -258,7 +259,7 @@ year (366 days)
   downtime               0 h in 0 outage(s), longest 0 h
   lowest charge          74.4 % on 5 Dec
   worst deficit          0.0478 Wh over 2 day(s) from 3 Dec
-  autonomy               5.24 days from full
+  autonomy               5.22 days from full
 month   stored Wh   load Wh   down h
   Jan        1.98      1.96        0
   Feb        1.84      1.83        0
@@ -274,7 +275,7 @@ month   stored Wh   load Wh   down h
   Dec        1.95      1.95        0
 note: The charger can push 500 mA but the model lets this battery accept only 50 mA (0.5 C).
 note: Time zone 5.5 h rounded to 6 h to align the hourly rows with local hours.
-result: Survives the year with 5.24 days of autonomy from a full battery; lowest state of charge 74.4 % around 5 Dec.
+result: Survives the year with 5.22 days of autonomy from a full battery; lowest state of charge 74.4 % around 5 Dec.
 ```
 
 `--json` prints the same results as JSON (budget, totals, monthly figures,
@@ -359,6 +360,11 @@ stored energy` to 1e-9 Wh, monthly sums equal the totals, clipping and
 - **Bounds and behaviour**: state of charge within [0, 1] and above the
   floor whenever the node runs; a node without a panel runs for about its
   autonomy; no charging below 0 degC.
+- **Autonomy**: hand-stepped values with and without self-discharge, a
+  brute-force hourly loop, the continuous solution, the old
+  `usable / daily load` result when self-discharge is zero, and an exact
+  match with a no-sun simulation run when the load does not depend on the
+  battery voltage.
 - **Regulators**: hand-computed LDO and buck battery power; the buck beats
   the LDO on the radio burst and loses on a pure sleep load.
 - **PVGIS parsing** on hand-written files in the documented layout
