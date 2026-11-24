@@ -69,7 +69,10 @@ battery sizes for the cheapest combination that never browns out.
 - **App**: load-profile table, stacked bar of daily energy per state, year
   heatmap of state of charge (day x hour), monthly harvest vs load bars,
   worst-week zoom, sizing chart, one-line verdict, warnings about the parts
-  combination, shareable URLs, CSV export, light/dark, phone layout. No
+  combination, shareable URLs, configuration JSON import (file picker or
+  drag and drop, including the export of
+  [embedded-power-profiler](https://github.com/projectbin07-stack/embedded-power-profiler)),
+  CSV export, light/dark, phone layout. No
   external assets, no network calls, no build step.
 - **CLI**: `simulate` and `size` on JSON configurations, text or JSON
   output, CSV export, deterministic for a seed.
@@ -104,6 +107,17 @@ example `?wp=0.5&mah=1000&cl=mumbai&lat=19.08&lon=72.88`), the load as
 `theme=light|dark`. **Copy link** copies the current setup. A loaded PVGIS
 file is not part of the link.
 
+**Importing a configuration.** "Or import a configuration JSON" under
+_Start from_ (or dropping a `.json` file anywhere on the page) reads the
+same JSON the CLI reads. Every section in the file replaces the current
+one; sections it leaves out keep their current values, so a measured load
+profile exported by embedded-power-profiler (`epp export LOG --solar-node-sizer
+load.json`, which holds only `name`, `note` and `load`) replaces the load
+table and keeps your location, panel, battery and regulator. A full
+configuration (`--full-config`) replaces everything. A file that is not
+valid JSON or not a valid configuration is reported and nothing changes.
+Dropping a `.csv` file loads it as PVGIS data.
+
 ## Using PVGIS data for your location
 
 PVGIS is a free tool of the European Commission's Joint Research Centre and
@@ -131,7 +145,7 @@ set (rounded to the hour).
 
 ```
 $ node bin/solar-node-sizer.js --help
-solar-node-sizer 0.1.1: solar panel and battery sizing for embedded nodes
+solar-node-sizer 0.1.2: solar panel and battery sizing for embedded nodes
 
 Usage:
   solar-node-sizer simulate <config.json> [options]
@@ -326,11 +340,12 @@ src/core/  (DOM-free, tested under Node)
   model.js      glue: resource -> simulation -> summary, JSON, CSV
   examples.js   the example configurations (same as examples/*.json)
 src/ui/
-  state.js      URL <-> configuration (tested)
+  state.js      URL <-> configuration, JSON import (tested)
   draw.js       canvas charts with hover tooltips
   app.js        form wiring
 src/cli.js, bin/solar-node-sizer.js   command-line interface
 scripts/fit-climate.js                fits a climate preset to a PVGIS file you downloaded
+scripts/browser-import-test.js        headless-browser test of the JSON import (CI)
 ```
 
 The browser and the CLI run exactly the same `src/core` code.
@@ -342,7 +357,7 @@ npm run check        # Prettier, tsc --checkJs --strict, node:test with coverage
 ```
 
 On the development machine (Windows 11, Node 25) `npm run coverage` reports
-83 tests, 83 passing, with 99.8 % line, 95.5 % branch and 98.1 % function
+93 tests, 93 passing, with 99.8 % line, 95.1 % branch and 98.2 % function
 coverage over the measured files (the canvas and DOM code in
 `src/ui/app.js` and `src/ui/draw.js` is excluded; it is exercised by the
 browser smoke test in CI).
@@ -376,11 +391,21 @@ stored energy` to 1e-9 Wh, monthly sums equal the totals, clipping and
   set to zero (with them it can, see docs/models.md); frontier
   non-dominated; lowest cost.
 - **Determinism**: same seed, same year and same CLI output.
+- **Load windows**: a once-a-day event in a one-hour `from`/`to` window
+  is one event a day (1.6667 mAh at 100 mA for 60 s), the same as without
+  the window.
+- **Configuration import**: a real embedded-power-profiler export (load
+  only, and full configuration) gives the same configuration as the CLI;
+  bad files are rejected with a message.
 - **CLI output shape**, URL round trips, configuration errors.
 
 CI runs the checks on Ubuntu and Windows with Node 22 and 24, smoke-tests
 the CLI, and loads the page in headless Chrome to check that the simulation
-and the sizer ran.
+and the sizer ran. A second headless-Chrome step
+(`scripts/browser-import-test.js`, DevTools protocol, no dependencies)
+imports an embedded-power-profiler export through the file input and by a
+synthetic drop event and checks the page's results against the CLI's
+(512 mWh/day, 14.3 days autonomy).
 
 ## Known limitations
 

@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-11-24
+
+### Fixed
+
+- A scheduled state with a `from`/`to` window and a period longer than the
+  window lost most of its events. The duty cycle `duration / every` was
+  applied only inside the window, so "every 86400 s for 60 s between 12:00
+  and 13:00" counted 1/24 of an event: 0.0694 instead of 1.6667 mAh/day at
+  100 mA, understating that state's load 24x. `every` is now a wall-clock
+  period: `W / every` events a day when it fits in the window of `W`
+  seconds, otherwise one event per window (or one every n-th day for
+  periods over a day), spread over the window's hours. An event longer than
+  its window is capped and named in the overbooked warning. The bundled
+  examples have no windows: their `simulate --json` and `size --json`
+  output is byte-identical before and after.
+
+### Added
+
+- The browser app imports a configuration JSON, through a file picker
+  under "Start from" or by dropping the file on the page. This is the file
+  the CLI reads, including the export of embedded-power-profiler, which
+  before could only be used with the CLI. Sections in the file replace the
+  current ones; a load-only export changes only the load table. Tested in
+  CI in headless Chrome over the DevTools protocol
+  (`scripts/browser-import-test.js`).
+
 ## [0.1.1] - 2026-11-19
 
 ### Fixed

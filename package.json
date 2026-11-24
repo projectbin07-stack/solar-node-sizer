@@ -1,6 +1,6 @@
 {
   "name": "solar-node-sizer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Size the solar panel and battery for an embedded sensor node and simulate a year hour by hour.",
   "license": "MIT",
