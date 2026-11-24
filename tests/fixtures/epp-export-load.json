@@ -1,0 +1,35 @@
+{
+  "name": "synth.log (measured)",
+  "note": "Load profile measured by embedded-power-profiler 0.1.0 from synth.log (ina219, 1800 s analysed, 138.4 mAh/day). Current measured at the supply; mean voltage 3.3 V (measured). 'every' and 'duration' are means, so long outlier events are included.",
+  "load": [
+    {
+      "name": "deep sleep",
+      "mA": 0.0250371,
+      "base": true
+    },
+    {
+      "name": "sensor read",
+      "mA": 18.068,
+      "every": 60.0,
+      "duration": 0.494667
+    },
+    {
+      "name": "boot",
+      "mA": 41.0383,
+      "every": 60.0,
+      "duration": 0.308
+    },
+    {
+      "name": "Wi-Fi connect",
+      "mA": 94.9105,
+      "every": 60.0,
+      "duration": 2.79867
+    },
+    {
+      "name": "MQTT publish",
+      "mA": 185.51,
+      "every": 60.0,
+      "duration": 0.309333
+    }
+  ]
+}

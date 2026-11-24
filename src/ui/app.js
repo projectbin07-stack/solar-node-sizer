@@ -10,7 +10,7 @@ import { PvgisFormatError, parsePvgisCsv } from "../core/pvgis.js";
 import { size } from "../core/sizer.js";
 import { CITIES, CLIMATES, getClimate } from "../core/weather.js";
 import { drawHeatmap, drawMonthly, drawPareto, drawStackedBar, drawWeek, palette } from "./draw.js";
-import { decodeState, encodeState } from "./state.js";
+import { decodeState, encodeState, importConfigText } from "./state.js";
 
 /** @typedef {import("../core/config.js").Config} Config */
 /** @typedef {import("../core/model.js").ModelRun} ModelRun */
@@ -537,23 +537,24 @@ function bind() {
     writeForm(app.config);
     recompute();
   });
+  input("config-file").addEventListener("change", async () => {
+    const file = input("config-file").files?.[0];
+    if (file) await importConfigFile(file);
+  });
   input("pvgis-file").addEventListener("change", async () => {
     const file = input("pvgis-file").files?.[0];
+    if (file) await loadPvgisFile(file);
+  });
+  // Drop a configuration JSON or a PVGIS CSV anywhere on the page.
+  document.addEventListener("dragover", (ev) => {
+    if (ev.dataTransfer?.types.includes("Files")) ev.preventDefault();
+  });
+  document.addEventListener("drop", async (ev) => {
+    const file = ev.dataTransfer?.files[0];
     if (!file) return;
-    const statusEl = el("pvgis-status");
-    try {
-      app.pvgis = parsePvgisCsv(await file.text());
-      app.pvgisName = file.name;
-      const m = app.pvgis.meta;
-      statusEl.textContent = `Using ${file.name}: ${app.pvgis.times.length} hours${m.lat !== null ? ` at ${m.lat}, ${m.lon}` : ""}${app.pvgis.kind === "series" ? `, tilt ${m.slope ?? "?"} deg and azimuth ${m.azimuth ?? "?"} deg from the file` : " (TMY, transposed to the panel settings)"}. The file stays in this browser and is not part of the shared link.`;
-      el("btn-synthetic").hidden = false;
-    } catch (e) {
-      if (!(e instanceof PvgisFormatError)) throw e;
-      app.pvgis = null;
-      statusEl.textContent = `Could not read ${file.name}: ${e.message}`;
-    }
-    updateClimateNote();
-    recompute();
+    ev.preventDefault();
+    if (/\.csv$/i.test(file.name) || file.type === "text/csv") await loadPvgisFile(file);
+    else await importConfigFile(file);
   });
   el("btn-synthetic").addEventListener("click", () => {
     app.pvgis = null;
@@ -613,6 +614,65 @@ function bind() {
     }
   }).observe(el("c-heat"));
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+}
+
+/**
+ * Read a PVGIS CSV the user picked or dropped.
+ * @param {File} file
+ */
+async function loadPvgisFile(file) {
+  const statusEl = el("pvgis-status");
+  try {
+    app.pvgis = parsePvgisCsv(await file.text());
+    app.pvgisName = file.name;
+    const m = app.pvgis.meta;
+    statusEl.textContent = `Using ${file.name}: ${app.pvgis.times.length} hours${m.lat !== null ? ` at ${m.lat}, ${m.lon}` : ""}${app.pvgis.kind === "series" ? `, tilt ${m.slope ?? "?"} deg and azimuth ${m.azimuth ?? "?"} deg from the file` : " (TMY, transposed to the panel settings)"}. The file stays in this browser and is not part of the shared link.`;
+    el("btn-synthetic").hidden = false;
+  } catch (e) {
+    if (!(e instanceof PvgisFormatError)) throw e;
+    app.pvgis = null;
+    statusEl.textContent = `Could not read ${file.name}: ${e.message}`;
+  }
+  updateClimateNote();
+  recompute();
+}
+
+/**
+ * Apply a configuration JSON the user picked or dropped: a saved
+ * configuration or the export of embedded-power-profiler. Sections in the
+ * file replace the current ones; a load profile on its own changes only the
+ * load.
+ * @param {File} file
+ */
+async function importConfigFile(file) {
+  const statusEl = el("config-status");
+  let result;
+  try {
+    result = importConfigText(await file.text(), readFormOrCurrent());
+  } catch (e) {
+    if (!(e instanceof ConfigError)) throw e;
+    statusEl.textContent = `Could not import ${file.name}: ${e.message}`;
+    return;
+  }
+  app.example = null;
+  app.config = result.config;
+  writeForm(app.config);
+  el("config-note").textContent = app.config.note;
+  const n = app.config.load.length;
+  statusEl.textContent = result.loadOnly
+    ? `Imported ${file.name}: load profile with ${n} states; the other settings are unchanged.`
+    : `Imported ${file.name}: ${result.replaced.join(", ")} (${n} load states).`;
+  recompute();
+}
+
+/** The form's configuration, or the last valid one if the form is invalid. */
+function readFormOrCurrent() {
+  try {
+    return readForm();
+  } catch (e) {
+    if (!(e instanceof ConfigError)) throw e;
+    return app.config;
+  }
 }
 
 function init() {

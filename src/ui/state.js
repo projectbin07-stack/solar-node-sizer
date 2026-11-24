@@ -1,7 +1,7 @@
 // URL parameters <-> configuration. DOM-free so it can be tested under Node.
 // Only values that differ from the defaults are written, so links stay short.
 
-import { ConfigError, defaultConfig, validate } from "../core/config.js";
+import { ConfigError, defaultConfig, normalizeConfig, validate } from "../core/config.js";
 import { REGULATOR_PRESETS } from "../core/load.js";
 
 /** @typedef {import("../core/config.js").Config} Config */
@@ -293,4 +293,43 @@ export function decodeState(query) {
   const t = q.get("theme");
   const theme = t === "light" || t === "dark" ? t : "auto";
   return { config: c, theme, example: q.get("ex"), ignored };
+}
+
+/**
+ * @typedef {object} ImportResult
+ * @property {Config} config
+ * @property {string[]} replaced top-level sections taken from the file
+ * @property {boolean} loadOnly the file held a load profile and no other settings
+ */
+
+/**
+ * Apply a configuration JSON file (a saved configuration, or the export of
+ * embedded-power-profiler) to the current settings. Every section the file
+ * contains replaces the current one, exactly as the CLI reads it; sections
+ * the file leaves out keep their current values, so a measured load profile
+ * on its own changes only the load. Throws ConfigError on a bad file.
+ * @param {string} text file contents
+ * @param {Config} current
+ * @returns {ImportResult}
+ */
+export function importConfigText(text, current) {
+  /** @type {unknown} */
+  let raw;
+  try {
+    raw = JSON.parse(text.replace(/^﻿/, ""));
+  } catch (e) {
+    throw new ConfigError(`not valid JSON (${/** @type {Error} */ (e).message})`);
+  }
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw))
+    throw new ConfigError("configuration must be a JSON object");
+  const file = /** @type {Record<string, unknown>} */ (raw);
+  /** @type {Record<string, unknown>} */
+  const merged = { ...structuredClone(current), ...file };
+  // A regulator from the file without a preset name is a custom regulator;
+  // a preset name without parameters takes the preset's parameters.
+  if ("regulator" in file && !("regulatorPreset" in file)) delete merged.regulatorPreset;
+  if ("regulatorPreset" in file && !("regulator" in file)) delete merged.regulator;
+  const config = normalizeConfig(merged);
+  const replaced = Object.keys(file).filter((k) => k !== "name" && k !== "note");
+  return { config, replaced, loadOnly: replaced.length === 1 && replaced[0] === "load" };
 }

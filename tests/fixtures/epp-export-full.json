@@ -1,0 +1,80 @@
+{
+  "name": "synth.log (measured)",
+  "note": "Load profile measured by embedded-power-profiler 0.1.0 from synth.log (ina219, 1800 s analysed, 138.4 mAh/day). Current measured at the supply; mean voltage 3.3 V (measured). 'every' and 'duration' are means, so long outlier events are included.",
+  "location": {
+    "lat": 12.97,
+    "lon": 77.59,
+    "tz": 5.5,
+    "climate": "bengaluru",
+    "seed": 1,
+    "cloudScale": 1
+  },
+  "panel": {
+    "wp": 1,
+    "tilt": 15,
+    "azimuth": 180,
+    "albedo": 0.2,
+    "tempCoeff": -0.004,
+    "noct": 48,
+    "soiling": 0.05,
+    "otherLosses": 0.1,
+    "vmp": 6
+  },
+  "charger": {
+    "type": "linear",
+    "efficiency": 0.97,
+    "maxCurrentMa": 500
+  },
+  "battery": {
+    "chemistry": "liion",
+    "cells": 1,
+    "capacityMah": 2500.0,
+    "dod": 0.8,
+    "cutoffV": 3.0,
+    "selfDischargePerMonth": 0.03,
+    "initialSoc": 1
+  },
+  "regulatorPreset": "ldo-lowiq",
+  "simulation": {
+    "warmupYears": 1,
+    "restartFraction": 0.05
+  },
+  "sizer": {
+    "panelWp": [],
+    "batteryMah": [],
+    "maxDowntimeHours": 0,
+    "costPerWp": 1,
+    "costPerAh": 1
+  },
+  "load": [
+    {
+      "name": "deep sleep",
+      "mA": 0.0250371,
+      "base": true
+    },
+    {
+      "name": "sensor read",
+      "mA": 18.068,
+      "every": 60.0,
+      "duration": 0.494667
+    },
+    {
+      "name": "boot",
+      "mA": 41.0383,
+      "every": 60.0,
+      "duration": 0.308
+    },
+    {
+      "name": "Wi-Fi connect",
+      "mA": 94.9105,
+      "every": 60.0,
+      "duration": 2.79867
+    },
+    {
+      "name": "MQTT publish",
+      "mA": 185.51,
+      "every": 60.0,
+      "duration": 0.309333
+    }
+  ]
+}

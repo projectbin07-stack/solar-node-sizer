@@ -2,7 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { defaultConfig, normalizeConfig } from "../src/core/config.js";
 import { EXAMPLES } from "../src/core/examples.js";
-import { decodeLoad, decodeState, encodeLoad, encodeState, num } from "../src/ui/state.js";
+import {
+  decodeLoad,
+  decodeState,
+  encodeLoad,
+  encodeState,
+  importConfigText,
+  num,
+} from "../src/ui/state.js";
 import { readFileSync } from "node:fs";
 
 /**
@@ -109,4 +116,59 @@ test("load encoding", () => {
   assert.equal(decodeLoad("~~"), null);
   assert.equal(encodeLoad([{ name: "", mA: 1, base: true }]), "state~1~b");
   assert.equal(num(1 / 3), "0.333333");
+});
+
+test("importing an embedded-power-profiler load export changes only the load (audit #23)", () => {
+  const current = normalizeConfig(EXAMPLES[1].config);
+  const text = readFileSync("tests/fixtures/epp-export-load.json", "utf8");
+  const r = importConfigText(text, current);
+  assert.equal(r.loadOnly, true);
+  assert.deepEqual(r.replaced, ["load"]);
+  assert.equal(r.config.load.length, 5);
+  assert.deepEqual(r.config.load[3], {
+    name: "Wi-Fi connect",
+    mA: 94.9105,
+    every: 60,
+    duration: 2.79867,
+  });
+  assert.equal(r.config.name, "synth.log (measured)");
+  assert.match(r.config.note, /embedded-power-profiler/);
+  // everything else is the page's current setup
+  assert.deepEqual(r.config.location, current.location);
+  assert.deepEqual(r.config.battery, current.battery);
+  assert.deepEqual(r.config.regulator, current.regulator);
+  assert.equal(r.config.regulatorPreset, current.regulatorPreset);
+  // the same file read by the CLI path gives the same load
+  assert.deepEqual(r.config.load, normalizeConfig(JSON.parse(text)).load);
+});
+
+test("importing a full configuration matches what the CLI reads", () => {
+  const text = readFileSync("tests/fixtures/epp-export-full.json", "utf8");
+  const r = importConfigText(text, normalizeConfig(EXAMPLES[1].config));
+  assert.equal(r.loadOnly, false);
+  assert.deepEqual(r.config, normalizeConfig(JSON.parse(text)));
+  // with a byte-order mark too
+  assert.deepEqual(importConfigText("﻿" + text, defaultConfig()).config, r.config);
+});
+
+test("importing: a regulator without a preset is custom, a preset alone takes its parameters", () => {
+  const cur = defaultConfig();
+  const custom = importConfigText(
+    JSON.stringify({ regulator: { type: "ldo", vout: 3.0, iqUa: 2, dropout: 0.2 } }),
+    cur,
+  ).config;
+  assert.equal(custom.regulatorPreset, "custom");
+  assert.equal(custom.regulator.vout, 3.0);
+  const buck = importConfigText(JSON.stringify({ regulatorPreset: "buck" }), custom).config;
+  assert.equal(buck.regulatorPreset, "buck");
+  assert.equal(buck.regulator.type, "switching");
+  assert.deepEqual(importConfigText("{}", cur).config, cur);
+});
+
+test("importing rejects files that are not configurations", () => {
+  const cur = defaultConfig();
+  assert.throws(() => importConfigText("not json", cur), /not valid JSON/);
+  assert.throws(() => importConfigText("[1,2]", cur), /JSON object/);
+  assert.throws(() => importConfigText('{"bogus": 1}', cur), /unknown field bogus/);
+  assert.throws(() => importConfigText('{"load": []}', cur), /non-empty array/);
 });

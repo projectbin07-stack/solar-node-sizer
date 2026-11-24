@@ -86,3 +86,8 @@ jobs:
             "http://127.0.0.1:8000/?wp=0.02" > dom2.html
           grep -o 'id="summary"[^<]*' dom2.html
           grep -q 'id="summary" class="summary bad"[^>]*>Down ' dom2.html
+      - name: Import a configuration JSON via the file picker and drag and drop
+        run: |
+          node scripts/serve.js &
+          sleep 1
+          node scripts/browser-import-test.js google-chrome
