@@ -8,10 +8,12 @@ import {
   dailyBudget,
   dutyFraction,
   efficiencyAt,
+  eventsPerDay,
   hourLoads,
   hourlyShares,
   peakBatteryMa,
   regulatorMinVin,
+  windowHours,
 } from "../src/core/load.js";
 
 /** @typedef {import("../src/core/load.js").LoadState} LoadState */
@@ -137,4 +139,58 @@ test("peak battery current", () => {
     1e-9,
     "buck",
   );
+});
+
+test("a from/to window places a long-period event; it does not drop it (audit #4)", () => {
+  const r = REGULATOR_PRESETS.none.regulator;
+  /** @param {object} extra */
+  const mk = (extra) => [
+    { name: "sleep", mA: 0, base: true },
+    { name: "daily upload", mA: 100, every: 86400, duration: 60, ...extra },
+  ];
+  const all = dailyBudget(mk({}), r, 3.7);
+  const noon = dailyBudget(mk({ from: 12, to: 13 }), r, 3.7);
+  const night = dailyBudget(mk({ from: 22, to: 2 }), r, 3.7);
+  // One 60 s event at 100 mA = 100 * 60 / 3600 = 1.6667 mAh a day, with or without a window.
+  near(all.states[1].mAhPerDay, 100 / 60, 1e-12, "no window");
+  near(noon.states[1].mAhPerDay, 100 / 60, 1e-12, "12-13 window (was 0.0694)");
+  near(night.states[1].mAhPerDay, 100 / 60, 1e-12, "22-02 window");
+  // all of it lands in hour 12
+  const { shares } = hourlyShares(mk({ from: 12, to: 13 }));
+  near(shares[12][1], 60 / 3600, 1e-15, "share in the window hour");
+  assert.equal(shares[11][1], 0);
+  assert.equal(eventsPerDay(mk({ from: 12, to: 13 })[1]), 1);
+  // every two days: half an event per day
+  near(
+    eventsPerDay({ name: "x", mA: 1, every: 172800, duration: 60, from: 3, to: 4 }),
+    0.5,
+    1e-15,
+    "2-day",
+  );
+  // a period that fits in the window keeps the old rate: 6 h window, every 600 s = 36 events
+  near(
+    eventsPerDay({ name: "x", mA: 1, every: 600, duration: 3, from: 6, to: 12 }),
+    36,
+    1e-12,
+    "36",
+  );
+  near(
+    dutyFraction({ name: "x", mA: 1, every: 600, duration: 3, from: 6, to: 12 }),
+    0.005,
+    1e-15,
+    "duty",
+  );
+  // every 2 h in a 1 h window still runs once in that window
+  assert.equal(eventsPerDay({ name: "x", mA: 1, every: 7200, duration: 1, from: 12, to: 13 }), 1);
+  assert.equal(windowHours({ name: "x", mA: 1, from: 22, to: 2 }), 4);
+  assert.equal(windowHours({ name: "x", mA: 1 }), 24);
+});
+
+test("an event longer than its window is capped and reported as overbooked", () => {
+  const { shares, overbooked } = hourlyShares([
+    { name: "sleep", mA: 0, base: true },
+    { name: "long", mA: 10, every: 86400, duration: 7200, from: 12, to: 13 },
+  ]);
+  assert.equal(shares[12][1], 1);
+  assert.deepEqual(overbooked, [12]);
 });

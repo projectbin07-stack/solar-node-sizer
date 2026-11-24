@@ -77,7 +77,7 @@ export function runModel(c, pvgis = null) {
   const warnings = [...configWarnings(c), ...resource.notes];
   if (budget.overbookedHours.length > 0)
     warnings.push(
-      `Scheduled states add up to more than 100 % of hour(s) ${budget.overbookedHours.join(", ")}; they were scaled down.`,
+      `Scheduled states need more than 100 % of hour(s) ${budget.overbookedHours.join(", ")} (overlapping states, or events longer than their window); they were scaled down to fit.`,
     );
   return { resource, prepared, result, budget, warnings, summary: summarize(result) };
 }

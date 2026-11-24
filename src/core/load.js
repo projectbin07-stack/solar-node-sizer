@@ -159,16 +159,54 @@ export function activeInHour(s, hour) {
 }
 
 /**
- * Fraction of time a scheduled state is on while it is active.
+ * Length of a state's daily window in hours (24 when it has no window).
  * @param {LoadState} s
  * @returns {number}
  */
-export function dutyFraction(s) {
+export function windowHours(s) {
+  const from = s.from ?? 0;
+  const to = s.to ?? 24;
+  if (from === to) return 24;
+  let n = 0;
+  for (let h = 0; h < 24; h++) if (activeInHour(s, h)) n++;
+  return n;
+}
+
+/**
+ * Events per day of a scheduled state.
+ *
+ * `every` is a wall-clock period. Inside a window of W seconds the state
+ * runs W / every times a day when the period fits in the window. When the
+ * period is longer than the window the window says *when* the event
+ * happens, not that most events are skipped: the state runs once per
+ * window (and only on every n-th day when `every` is longer than a day).
+ * "Every 86400 s for 60 s between 12:00 and 13:00" is therefore one event
+ * a day, the same charge as without the window.
+ * @param {LoadState} s
+ * @returns {number}
+ */
+export function eventsPerDay(s) {
   if (s.base) return 0;
   const every = s.every ?? 0;
   const duration = s.duration ?? 0;
   if (!(every > 0) || !(duration > 0)) return 0;
-  return Math.min(1, duration / every);
+  const windowS = windowHours(s) * 3600;
+  if (windowS <= 0) return 0;
+  if (every <= windowS) return windowS / every;
+  return Math.min(1, 86400 / every);
+}
+
+/**
+ * Fraction of time a scheduled state is on while it is active (inside its
+ * window), so that the window as a whole holds eventsPerDay(s) events.
+ * @param {LoadState} s
+ * @returns {number}
+ */
+export function dutyFraction(s) {
+  const events = eventsPerDay(s);
+  if (!(events > 0)) return 0;
+  const windowS = windowHours(s) * 3600;
+  return Math.min(1, (events * (s.duration ?? 0)) / windowS);
 }
 
 /**
@@ -181,15 +219,21 @@ export function dutyFraction(s) {
  */
 export function hourlyShares(states) {
   const baseIdx = states.findIndex((s) => s.base);
+  const duty = states.map((s) => dutyFraction(s));
+  // A state whose events do not fit in its window (duration longer than the
+  // window, or longer than the period) is capped at 100 % and reported.
+  const tooLong = states.map(
+    (s) => !s.base && eventsPerDay(s) * (s.duration ?? 0) > windowHours(s) * 3600 + 1e-9,
+  );
   /** @type {number[][]} */
   const shares = [];
   /** @type {number[]} */
   const overbooked = [];
   for (let h = 0; h < 24; h++) {
-    const row = states.map((s) => (!s.base && activeInHour(s, h) ? dutyFraction(s) : 0));
+    const row = states.map((s, i) => (!s.base && activeInHour(s, h) ? duty[i] : 0));
     const busy = row.reduce((a, b) => a + b, 0);
+    if (busy > 1 || states.some((s, i) => tooLong[i] && activeInHour(s, h))) overbooked.push(h);
     if (busy > 1) {
-      overbooked.push(h);
       for (let i = 0; i < row.length; i++) row[i] /= busy;
     } else if (baseIdx >= 0) row[baseIdx] = 1 - busy;
     shares.push(row);

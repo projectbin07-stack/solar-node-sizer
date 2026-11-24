@@ -217,6 +217,22 @@ there is no regulator). A scheduled state runs `duration` seconds every
 base state (normally sleep) fills the rest of each hour. If scheduled
 states add up to more than the hour they are scaled down with a warning.
 
+`every` is a wall-clock period. With a window of `W` hours the state runs
+
+```
+events per day = W x 3600 / every    if every <= W x 3600
+               = min(1, 86400 / every)  otherwise
+```
+
+and the events are spread evenly over the window's hours. When the period
+fits in the window this is the plain duty cycle inside the window. When it
+is longer, the window says when the event happens: "every 86400 s for 60 s
+between 12 and 13" is one event a day in hour 12, not 1/24 of one (before
+0.1.2 it was counted as 0.0694 instead of 1.6667 mAh/day at 100 mA). A
+period longer than a day runs on every n-th day, and an event longer than
+its window is capped at the window and reported with the overbooked
+warning.
+
 Battery power, for battery voltage `Vb`:
 
 ```
